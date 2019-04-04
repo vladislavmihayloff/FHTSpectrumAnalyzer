@@ -4,6 +4,7 @@
 #define MODE_LIGHT 1001     // Режим подсветки
 #define MODE_SUNRISE 1002   // Будильник с плавным включением подсветки
 #define MODE_CLOCK 1003     // Часы
+#define MODE_RAINBOW 1004   // Радуга
 
 // матрица
 #define WIDTH 15          // ширина матрицы (число диодов)
@@ -40,7 +41,9 @@
 // массив тонов, расположены примерно по параболе. От 80 Гц до 16 кГц
 // byte posOffset[11] = {2,3,5,7,11,16,25,39,62,77,96};
 // byte frenqueList[16] = {2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30, 35, 60, 80, 100}; // Список частот (порядковый номер) из выходного массива, получаемого из библиотеки FHT
-byte frenqueList[16] = {2, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30, 35, 45, 50, 80, 90};
+//byte frenqueList[16] = {2, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30, 35, 45, 50, 80, 90};
+//byte frenqueList[16] = {5, 8, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 68, 73, 78}; // norm
+byte frenqueList[16] = {3, 6, 9, 12, 15, 18, 21, 26, 31, 36, 41, 46, 51, 56, 61, 66}; 
 // ---------------------- НАСТРОЙКИ --------------------------------
 
 // ---------------------- ПИНЫ ----------------------
@@ -61,6 +64,18 @@ byte frenqueList[16] = {2, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30, 35, 45, 50, 80, 
 #include <FastLED.h>
 CRGB leds[NUM_LEDS];
 
+int idex = 0;
+int ihue = 0;
+int thisdelay = 10;          
+int thisstep = 5;
+int thissat = 255;
+
+int maxColorChannelValue = 200;
+int rainbowStep = 1;
+int rainbowStart_R = random(199);
+int rainbowStart_G = random(199);
+int rainbowStart_B = random(199);
+
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 
@@ -73,7 +88,13 @@ byte posLevel_old[WIDTH];
 unsigned long timeLevel[WIDTH], mainDelay;
 boolean fallFlag;
 int currentMode = MODE_EQUALIZER;
-int currentBrightness = 64;
+int currentBrightness = 128;
+int rColorCoefficientStepArray[WIDTH] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+int gColorCoefficientStepArray[WIDTH] = {-2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2};
+int bColorCoefficientStepArray[WIDTH] = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
+int rColorCoefficientArray[WIDTH] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150};
+int gColorCoefficientArray[WIDTH] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150};
+int bColorCoefficientArray[WIDTH] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150};
 // --------------- ДЛЯ РАЗРАБОТЧИКОВ ---------------
 
 void setup() {
@@ -95,7 +116,23 @@ void setup() {
   delay(500);
 }
 
-void loop() {  
+void loop() {
+  if (Serial.available()) {
+      String value = Serial.readString();
+      int intVal = value.toInt();
+      Serial.println(intVal);
+      if (intVal == 1) {
+        currentMode = MODE_EQUALIZER;
+      } else if (intVal == 2) {
+        currentMode = MODE_LIGHT;
+      } else if (intVal = 3) {
+        rainbowStart_R = random(199);
+        rainbowStart_G = random(199);
+        rainbowStart_B = random(199);
+        FastLED.setBrightness(64);
+        currentMode = MODE_RAINBOW;
+      }
+  } else {
   if (currentMode == MODE_EQUALIZER) {
     if (millis() - mainDelay > DELAY) {     // итерация главного цикла
       mainDelay = millis();
@@ -146,6 +183,12 @@ void loop() {
             // внимание! Принимает минимальное значение -1 !
           }
         }
+
+        //Serial.print(posLevel);
+        //Serial.print('\t');
+        //if (pos == (WIDTH - 1)) {
+          //Serial.print('\n');
+        //}
       }
 
       // -------
@@ -175,11 +218,86 @@ void loop() {
   } else if (currentMode == MODE_LIGHT) {
     for (int i = 0; i < NUM_LEDS; i++)
     {
-      leds[i] = CRGB::White; // Цвет подсветки.
+      leds[i] = CRGB::Red; // Цвет подсветки.
     }
-    FastLED.setBrightness(BRIGHTNESS);
+    FastLED.setBrightness(currentBrightness);
     FastLED.show();
+  } else if (currentMode == MODE_RAINBOW) {
+    //rainbow_loop();
+    testRainbow();
   }
+  }
+}
+
+void testRainbow() {
+  LEDS.clear();
+
+  for (byte i = 0; i < WIDTH; i++) {
+    byte startIndex = i * 10;
+
+    int rColorCoefficientStep = rColorCoefficientStepArray[i];
+    int gColorCoefficientStep = gColorCoefficientStepArray[i];
+    int bColorCoefficientStep = bColorCoefficientStepArray[i];
+    
+    rColorCoefficientArray[i] += rColorCoefficientStep;
+    gColorCoefficientArray[i] += gColorCoefficientStep;
+    bColorCoefficientArray[i] += bColorCoefficientStep;
+    if (rColorCoefficientArray[i] > 160) {
+     rColorCoefficientStep = -1;
+     rColorCoefficientStepArray[i] = rColorCoefficientStep;
+    } else if (rColorCoefficientArray[i] < 30) {
+      rColorCoefficientStep = 1;
+      rColorCoefficientStepArray[i] = rColorCoefficientStep;
+    }
+
+    if (gColorCoefficientArray[i] > 160) {
+     gColorCoefficientStep = -2;
+     gColorCoefficientStepArray[i] = gColorCoefficientStep;
+    } else if (gColorCoefficientArray[i] < 30) {
+      gColorCoefficientStep = 2;
+      gColorCoefficientStepArray[i] = gColorCoefficientStep;
+    }
+
+    if (bColorCoefficientArray[i] > 160) {
+     bColorCoefficientStep = -2;
+     bColorCoefficientStepArray[i] = bColorCoefficientStep;
+    } else if (bColorCoefficientArray[i] < 30) {
+      bColorCoefficientStep = 2;
+      bColorCoefficientStepArray[i] = bColorCoefficientStep;
+    }
+
+    byte R = rColorCoefficientArray[i];
+    byte G = gColorCoefficientArray[i];
+    byte B = bColorCoefficientArray[i];
+
+    //Serial.print(R);
+    //Serial.print('\t');
+    //Serial.print(rColorCoefficientStepArray[i]);
+    //Serial.print('\n');
+    
+    for (byte k = startIndex; k < startIndex + 10; k++) {
+        leds[k].red   = R;
+        leds[k].green = G;
+        leds[k].blue  = B;
+    }
+  }
+  
+  LEDS.show();
+  delay(100);
+}
+
+void rainbow_loop() {                        //-m3-LOOP HSV RAINBOW
+  idex++;
+  ihue = ihue + thisstep;
+  if (idex >= NUM_LEDS) {
+    idex = 0;
+  }
+  if (ihue > 255) {
+    ihue = 0;
+  }
+  leds[idex] = CHSV(ihue, thissat, 64);
+  LEDS.show();
+  delay(thisdelay);
 }
 
 void logToMonitor() {
@@ -228,7 +346,17 @@ int getPosLevelFromNearlyColumns(int invertedPos, int posLevel) {
           for (byte i = 0; i < linesAfter; i++) {  // от предыдущей полосы до текущей
             posLevel += (float) ((float)i / linesAfter) * fht_log_out[frenqueList[invertedPos] + linesAfter - i];
           }
-        }
+        } else if (invertedPos == 0) {
+          //Serial.println(frenqueList[invertedPos]);
+          linesBefore = frenqueList[invertedPos] - 1;
+          for (byte i = 0; i < linesBefore; i++) {  // от предыдущей полосы до текущей
+            posLevel += (float) ((float)i / linesBefore) * fht_log_out[frenqueList[invertedPos] - linesBefore + i];
+          }
+          linesAfter = frenqueList[invertedPos + 1] - frenqueList[invertedPos];
+          for (byte i = 0; i < linesAfter; i++) {  // от предыдущей полосы до текущей
+            posLevel += (float) ((float)i / linesAfter) * fht_log_out[frenqueList[invertedPos] + linesAfter - i];
+          }
+        } 
   return posLevel;
 }
 
