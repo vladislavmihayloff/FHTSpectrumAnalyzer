@@ -89,12 +89,16 @@ unsigned long timeLevel[WIDTH], mainDelay;
 boolean fallFlag;
 int currentMode = MODE_EQUALIZER;
 int currentBrightness = 128;
-int rColorCoefficientStepArray[WIDTH] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-int gColorCoefficientStepArray[WIDTH] = {-2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2};
-int bColorCoefficientStepArray[WIDTH] = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
-int rColorCoefficientArray[WIDTH] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150};
-int gColorCoefficientArray[WIDTH] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150};
-int bColorCoefficientArray[WIDTH] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150};
+int rColorCoefficientStepArray[WIDTH];
+int gColorCoefficientStepArray[WIDTH];
+int bColorCoefficientStepArray[WIDTH];
+int rColorCoefficientArray[WIDTH];
+int gColorCoefficientArray[WIDTH];
+int bColorCoefficientArray[WIDTH];
+
+byte LIGHT_R = 0;
+byte LIGHT_G = 0;
+byte LIGHT_B = 0;
 // --------------- ДЛЯ РАЗРАБОТЧИКОВ ---------------
 
 void setup() {
@@ -112,6 +116,19 @@ void setup() {
   
   FastLED.addLeds<WS2812B, DIN_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
+
+  for (int i = 0; i < WIDTH; i++) {
+    rColorCoefficientStepArray[i] = 1;
+    gColorCoefficientStepArray[i] = -2;
+    bColorCoefficientStepArray[i] = 2;
+
+    int coefficientValue = i * 10 + 10;
+
+    rColorCoefficientArray[i] = coefficientValue;
+    gColorCoefficientArray[i] = coefficientValue;
+    bColorCoefficientArray[i] = coefficientValue;
+  }
+  
   Serial.print("Setup was finished successful.\n");
   delay(500);
 }
